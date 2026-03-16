@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rounds Dashboard — Polymarket</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = { darkMode: 'media' };
+    </script>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
+    />
+  </head>
+  <body
+    class="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100"
+  >
+    <div id="app"></div>
+
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script>
+      const { createApp } = Vue;
+
+      function fmtElapsed(sec) {
+        if (sec == null || sec === '' || !Number.isFinite(Number(sec)))
+          return '-';
+        const s = Math.floor(Number(sec));
+        const m = Math.floor(s / 60);
+        const remainder = s % 60;
+        return m + ':' + String(remainder).padStart(2, '0');
+      }
+
+      function fmtSlot(row, lowCol, highCol, priceCol) {
+        const low = row[lowCol];
+        const high = row[highCol];
+        const price = row[priceCol];
+        if (
+          (low == null && high == null) ||
+          (low === '' && high === '') ||
+          price == null ||
+          price === ''
+        )
+          return '-';
+        const lowStr = fmtElapsed(low);
+        const highStr = fmtElapsed(high);
+        if (lowStr === '-' || highStr === '-') return '-';
+        const p = Number(price);
+        const priceStr = Number.isFinite(p) ? p.toFixed(2) : '-';
+        return lowStr + ' → ' + highStr + ' @ ' + priceStr;
+      }
+
+      function fmtStartTime(ts) {
+        if (ts == null || !Number.isFinite(Number(ts))) return '-';
+        const d = new Date(Number(ts));
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const h = String(d.getHours()).padStart(2, '0');
+        const min = String(d.getMinutes()).padStart(2, '0');
+        return y + '-' + m + '-' + day + ' ' + h + ':' + min;
+      }
+
+      createApp({
+        data() {
+          return {
+            rounds: [],
+            coins: [],
+            coinFilter: '',
+            page: 1,
+            total: 0,
+            totalPages: 0,
+            pageSize: 20,
+            loading: false,
+          };
+        },
+        mounted() {
+          this.fetchCoins();
+          this.fetchRounds();
+        },
+        watch: {
+          coinFilter() {
+            this.page = 1;
+            this.fetchRounds();
+          },
+          page() {
+            this.fetchRounds();
+          },
+        },
+        methods: {
+          async fetchCoins() {
+            try {
+              const r = await fetch('/api/coins');
+              const data = await r.json();
+              this.coins = data.coins || [];
+            } catch (e) {
+              this.coins = [];
+            }
+          },
+          async fetchRounds() {
+            this.loading = true;
+            try {
+              const params = new URLSearchParams();
+              params.set('page', String(this.page));
+              params.set('limit', String(this.pageSize));
+              if (this.coinFilter) params.set('coin', this.coinFilter);
+              const r = await fetch('/api/rounds?' + params.toString());
+              const data = await r.json();
+              this.rounds = data.rounds || [];
+              this.total = data.total || 0;
+              this.totalPages = data.totalPages || 0;
+            } catch (e) {
+              this.rounds = [];
+            } finally {
+              this.loading = false;
+            }
+          },
+          slot1(row) {
+            const up = fmtSlot(row, 'up_40_ts', 'up_60_elapsed', 's1_price');
+            const down = fmtSlot(
+              row,
+              'down_40_ts',
+              'down_60_elapsed',
+              's1_price'
+            );
+            return up !== '-' || down !== '-' ? 'Up: ' + up + ' | Down: ' + down : '-';
+          },
+          slot2(row) {
+            const up = fmtSlot(row, 'up_20_ts', 'up_40_elapsed', 's2_price');
+            const down = fmtSlot(
+              row,
+              'down_20_ts',
+              'down_40_elapsed',
+              's2_price'
+            );
+            return up !== '-' || down !== '-' ? 'Up: ' + up + ' | Down: ' + down : '-';
+          },
+          slot3(row) {
+            const up = fmtSlot(row, 'up_15_ts', 'up_30_elapsed', 's3_price');
+            const down = fmtSlot(
+              row,
+              'down_15_ts',
+              'down_30_elapsed',
+              's3_price'
+            );
+            return up !== '-' || down !== '-' ? 'Up: ' + up + ' | Down: ' + down : '-';
+          },
+          slot4(row) {
+            const up = fmtSlot(row, 'up_25_ts', 'up_50a_elapsed', 's4_price');
+            const down = fmtSlot(
+              row,
+              'down_25_ts',
+              'down_50a_elapsed',
+              's4_price'
+            );
+            return up !== '-' || down !== '-' ? 'Up: ' + up + ' | Down: ' + down : '-';
+          },
+          slot5(row) {
+            const up = fmtSlot(row, 'up_35_ts', 'up_50b_elapsed', 's5_price');
+            const down = fmtSlot(
+              row,
+              'down_35_ts',
+              'down_50b_elapsed',
+              's5_price'
+            );
+            return up !== '-' || down !== '-' ? 'Up: ' + up + ' | Down: ' + down : '-';
+          },
+          slotDisplay(row, slotFn) {
+            const s = slotFn(row);
+            return s === 'Up: - | Down: -' ? '-' : s;
+          },
+        },
+        template: `
+        <div class="container mx-auto px-4 py-8 max-w-[1400px]">
+          <header class="mb-6">
+            <h1 class="text-2xl font-semibold text-emerald-600 dark:text-emerald-400 tracking-tight">Rounds Dashboard</h1>
+            <p class="text-slate-600 dark:text-slate-400 text-sm mt-1">Market rounds from rounds.db — 20 records per page</p>
+          </header>
+
+          <div class="flex flex-wrap items-center gap-4 mb-4">
+            <div class="flex items-center gap-2">
+              <label class="text-sm text-slate-600 dark:text-slate-400">Coin:</label>
+              <select
+                v-model="coinFilter"
+                class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm"
+              >
+                <option value="">All</option>
+                <option v-for="c in coins" :key="c" :value="c">{{ c }}</option>
+              </select>
+            </div>
+          </div>
+
+          <div v-if="loading" class="text-slate-500 text-sm py-4">Loading…</div>
+
+          <div v-else class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700/50 overflow-hidden">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700/50">
+                  <th class="px-4 py-3 text-left font-medium">Coin</th>
+                  <th class="px-4 py-3 text-left font-medium">Start time</th>
+                  <th class="px-4 py-3 text-left font-medium">Slot 1 (40→60)</th>
+                  <th class="px-4 py-3 text-left font-medium">Slot 2 (20→40)</th>
+                  <th class="px-4 py-3 text-left font-medium">Slot 3 (15→30)</th>
+                  <th class="px-4 py-3 text-left font-medium">Slot 4 (25→50)</th>
+                  <th class="px-4 py-3 text-left font-medium">Slot 5 (35→50)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="r in rounds"
+                  :key="r.id"
+                  class="border-b border-slate-200 dark:border-slate-700/30 hover:bg-slate-50 dark:hover:bg-slate-800/30"
+                >
+                  <td class="px-4 py-3 font-medium">{{ r.coin }}</td>
+                  <td class="px-4 py-3 text-slate-600 dark:text-slate-400 font-mono">{{ fmtStartTime(r.start_ts) }}</td>
+                  <td class="px-4 py-3 text-slate-600 dark:text-slate-400 text-xs whitespace-pre-line">{{ slotDisplay(r, slot1) }}</td>
+                  <td class="px-4 py-3 text-slate-600 dark:text-slate-400 text-xs whitespace-pre-line">{{ slotDisplay(r, slot2) }}</td>
+                  <td class="px-4 py-3 text-slate-600 dark:text-slate-400 text-xs whitespace-pre-line">{{ slotDisplay(r, slot3) }}</td>
+                  <td class="px-4 py-3 text-slate-600 dark:text-slate-400 text-xs whitespace-pre-line">{{ slotDisplay(r, slot4) }}</td>
+                  <td class="px-4 py-3 text-slate-600 dark:text-slate-400 text-xs whitespace-pre-line">{{ slotDisplay(r, slot5) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div v-if="rounds.length === 0 && !loading" class="text-slate-500 text-sm mt-4">No rounds found.</div>
+
+          <div
+            v-if="totalPages > 1"
+            class="flex items-center justify-between mt-4 text-sm text-slate-600 dark:text-slate-400"
+          >
+            <span>
+              Page {{ page }} of {{ totalPages }} ({{ total }} total)
+            </span>
+            <div class="flex gap-2">
+              <button
+                :disabled="page <= 1"
+                @click="page = Math.max(1, page - 1)"
+                class="px-3 py-1.5 rounded border border-slate-300 dark:border-slate-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                Previous
+              </button>
+              <button
+                :disabled="page >= totalPages"
+                @click="page = Math.min(totalPages, page + 1)"
+                class="px-3 py-1.5 rounded border border-slate-300 dark:border-slate-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </div>
+      `,
+      }).mount('#app');
+    </script>
+  </body>
+</html>

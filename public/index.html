@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Polymarket — Real-time Prices</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = { darkMode: 'media' };
+    </script>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
+    />
+  </head>
+  <body
+    class="min-h-screen bg-white text-slate-900 dark:bg-slate-950 dark:text-slate-100"
+  >
+    <div id="app"></div>
+
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <script>
+      const { createApp } = Vue;
+
+      function fmtTime(ms) {
+        if (ms <= 0 || !Number.isFinite(ms)) return '—';
+        const s = Math.floor(ms / 1000);
+        const m = Math.floor(s / 60);
+        const sec = s % 60;
+        return m + ':' + String(sec).padStart(2, '0');
+      }
+
+      createApp({
+        data() {
+          return {
+            ws: null,
+            wsConnected: false,
+            markets: [],
+            prices: {},
+            now: Date.now(),
+            timer: null,
+          };
+        },
+        computed: {
+          rows() {
+            const out = [];
+            for (const m of this.markets) {
+              const up =
+                this.prices[m.up_id] ||
+                this.prices[`${m.coin}-${m.interval}-Up`];
+              const down =
+                this.prices[m.down_id] ||
+                this.prices[`${m.coin}-${m.interval}-Down`];
+              const durationMs = m.duration_min * 60 * 1000;
+              const startMs = m.end_date - durationMs;
+              const elapsed = this.now - startMs;
+              const eta = m.end_date - this.now;
+              out.push({
+                ...m,
+                up_buy: up ? (up.best_ask * 100).toFixed(1) : '—',
+                down_buy: down ? (down.best_ask * 100).toFixed(1) : '—',
+                up_sell: up ? (up.best_bid * 100).toFixed(1) : '—',
+                down_sell: down ? (down.best_bid * 100).toFixed(1) : '—',
+                elapsed: fmtTime(Math.min(elapsed, durationMs)),
+                eta: fmtTime(eta),
+              });
+            }
+            return out;
+          },
+        },
+        mounted() {
+          this.connect();
+          this.timer = setInterval(() => {
+            this.now = Date.now();
+          }, 1000);
+        },
+        beforeUnmount() {
+          if (this.timer) clearInterval(this.timer);
+        },
+        methods: {
+          connect() {
+            const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            this.ws = new WebSocket(proto + '//' + location.host + '/ws');
+            this.ws.onopen = () => {
+              this.wsConnected = true;
+            };
+            this.ws.onclose = () => {
+              this.wsConnected = false;
+              setTimeout(() => this.connect(), 3000);
+            };
+            this.ws.onerror = () => {};
+            this.ws.onmessage = (e) => {
+              try {
+                const msg = JSON.parse(e.data);
+                if (msg.type === 'markets') {
+                  this.markets = msg.markets || [];
+                } else if (msg.type === 'price') {
+                  const p = {
+                    mid_price: msg.mid_price,
+                    best_bid: msg.best_bid,
+                    best_ask: msg.best_ask,
+                  };
+                  const id = String(msg.asset_id);
+                  this.prices = { ...this.prices, [id]: p };
+                  if (msg.coin && msg.interval && msg.outcome) {
+                    const key = `${msg.coin}-${msg.interval}-${msg.outcome}`;
+                    this.prices = { ...this.prices, [key]: p };
+                  }
+                }
+              } catch (_) {}
+            };
+          },
+        },
+        template: `
+        <div class="container mx-auto px-4 py-8 max-w-4xl">
+          <header class="mb-6">
+            <h1 class="text-2xl font-semibold text-emerald-600 dark:text-emerald-400 tracking-tight">Polymarket</h1>
+            <p class="text-slate-600 dark:text-slate-400 text-sm mt-1">All 15m & 5m Up/Down prices — real-time</p>
+          </header>
+
+          <div class="flex items-center gap-3 text-sm mb-4">
+            <span class="text-slate-600 dark:text-slate-500">Connection:</span>
+            <span
+              class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium"
+              :class="wsConnected
+                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400'
+                : 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-500'"
+            >
+              <span class="w-2 h-2 rounded-full" :class="wsConnected ? 'bg-emerald-500' : 'bg-slate-500'"></span>
+              {{ wsConnected ? 'Connected' : 'Disconnected' }}
+            </span>
+          </div>
+
+          <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700/50 overflow-hidden">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700/50">
+                  <th class="px-4 py-3 text-left font-medium">Coin</th>
+                  <th class="px-4 py-3 text-left font-medium">Interval</th>
+                  <th class="px-4 py-3 text-right font-medium">Up Buy</th>
+                  <th class="px-4 py-3 text-right font-medium">Down Buy</th>
+                  <th class="px-4 py-3 text-right font-medium">Up Sell</th>
+                  <th class="px-4 py-3 text-right font-medium">Down Sell</th>
+                  <th class="px-4 py-3 text-right font-medium">Elapsed</th>
+                  <th class="px-4 py-3 text-right font-medium">ETA</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="r in rows"
+                  :key="r.coin + r.interval"
+                  class="border-b border-slate-200 dark:border-slate-700/30 hover:bg-slate-50 dark:hover:bg-slate-800/30"
+                >
+                  <td class="px-4 py-3 font-medium text-slate-800 dark:text-slate-200">{{ r.coin }}</td>
+                  <td class="px-4 py-3 text-slate-600 dark:text-slate-400">{{ r.interval }}</td>
+                    <td class="px-4 py-3 text-right font-mono">
+                      <span class="text-emerald-600 dark:text-emerald-400 font-semibold">{{ r.up_buy === '—' ? '—' : r.up_buy + '' }}</span>
+                    </td>
+                    <td class="px-4 py-3 text-right font-mono">
+                      <span class="text-emerald-600 dark:text-emerald-400 font-semibold">{{ r.down_buy === '—' ? '—' : r.down_buy + '' }}</span>
+                    </td>
+                    <td class="px-4 py-3 text-right font-mono">
+                      <span class="text-emerald-600 dark:text-emerald-400 font-semibold">{{ r.up_sell === '—' ? '—' : r.up_sell + '' }}</span>
+                    </td>
+                    <td class="px-4 py-3 text-right font-mono">
+                      <span class="text-emerald-600 dark:text-emerald-400 font-semibold">{{ r.down_sell === '—' ? '—' : r.down_sell + '' }}</span>
+                    </td>
+                  <td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400 font-mono">{{ r.elapsed }}</td>
+                  <td class="px-4 py-3 text-right text-slate-600 dark:text-slate-400 font-mono">{{ r.eta }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p v-if="rows.length === 0 && wsConnected" class="text-slate-500 text-sm mt-4">No active markets.</p>
+        </div>
+      `,
+      }).mount('#app');
+    </script>
+  </body>
+</html>
