@@ -35,18 +35,14 @@
         const low = row[lowCol];
         const high = row[highCol];
         const price = row[priceCol];
-        if (
-          (low == null && high == null) ||
-          (low === '' && high === '') ||
-          price == null ||
-          price === ''
-        )
-          return '-';
         const lowStr = fmtElapsed(low);
         const highStr = fmtElapsed(high);
         if (lowStr === '-' || highStr === '-') return '-';
         const p = Number(price);
-        const priceStr = Number.isFinite(p) ? p.toFixed(2) : '-';
+        const priceStr =
+          price != null && price !== '' && Number.isFinite(p)
+            ? p.toFixed(2)
+            : 'N';
         return lowStr + ' → ' + highStr + ' @ ' + priceStr;
       }
 
@@ -59,6 +55,11 @@
         const h = String(d.getHours()).padStart(2, '0');
         const min = String(d.getMinutes()).padStart(2, '0');
         return y + '-' + m + '-' + day + ' ' + h + ':' + min;
+      }
+
+      function slotDisplay(up, down) {
+        const ok = up !== '-' || down !== '-';
+        return ok ? 'Up: ' + up + ' | Down: ' + down : '-';
       }
 
       createApp({
@@ -74,9 +75,48 @@
             loading: false,
           };
         },
+        computed: {
+          formattedRounds() {
+            return this.rounds
+              .map((r) => {
+                const s1Up = fmtSlot(r, 'up_40_ts', 'up_60_elapsed', 's1_price');
+                const s1Down = fmtSlot(r, 'down_40_ts', 'down_60_elapsed', 's1_price');
+                const s2Up = fmtSlot(r, 'up_35_ts', 'up_70_s2_elapsed', 's2_price');
+                const s2Down = fmtSlot(r, 'down_35_ts', 'down_70_s2_elapsed', 's2_price');
+                const s3Up = fmtSlot(r, 'up_35_ts', 'up_60_s3_elapsed', 's3_price');
+                const s3Down = fmtSlot(r, 'down_35_ts', 'down_60_s3_elapsed', 's3_price');
+                const s4Up = fmtSlot(r, 'up_40_ts', 'up_70_s4_elapsed', 's4_price');
+                const s4Down = fmtSlot(r, 'down_40_ts', 'down_70_s4_elapsed', 's4_price');
+                const s5Up = fmtSlot(r, 'up_35_ts', 'up_50b_elapsed', 's5_price');
+                const s5Down = fmtSlot(r, 'down_35_ts', 'down_50b_elapsed', 's5_price');
+                return {
+                  ...r,
+                  _startTime: fmtStartTime(r.start_ts),
+                  _slot1: slotDisplay(s1Up, s1Down),
+                  _slot2: slotDisplay(s2Up, s2Down),
+                  _slot3: slotDisplay(s3Up, s3Down),
+                  _slot4: slotDisplay(s4Up, s4Down),
+                  _slot5: slotDisplay(s5Up, s5Down),
+                };
+              })
+              .filter((r) => {
+                const allEmpty =
+                  r._slot1 === '-' &&
+                  r._slot2 === '-' &&
+                  r._slot3 === '-' &&
+                  r._slot4 === '-' &&
+                  r._slot5 === '-';
+                return !allEmpty;
+              });
+          },
+        },
         mounted() {
           this.fetchCoins();
           this.fetchRounds();
+          this._pollTimer = setInterval(() => this.fetchRounds(true), 4000);
+        },
+        beforeUnmount() {
+          if (this._pollTimer) clearInterval(this._pollTimer);
         },
         watch: {
           coinFilter() {
@@ -97,8 +137,8 @@
               this.coins = [];
             }
           },
-          async fetchRounds() {
-            this.loading = true;
+          async fetchRounds(silent = false) {
+            if (!silent) this.loading = true;
             try {
               const params = new URLSearchParams();
               params.set('page', String(this.page));
@@ -112,62 +152,8 @@
             } catch (e) {
               this.rounds = [];
             } finally {
-              this.loading = false;
+              if (!silent) this.loading = false;
             }
-          },
-          slot1(row) {
-            const up = fmtSlot(row, 'up_40_ts', 'up_60_elapsed', 's1_price');
-            const down = fmtSlot(
-              row,
-              'down_40_ts',
-              'down_60_elapsed',
-              's1_price'
-            );
-            return up !== '-' || down !== '-' ? 'Up: ' + up + ' | Down: ' + down : '-';
-          },
-          slot2(row) {
-            const up = fmtSlot(row, 'up_20_ts', 'up_40_elapsed', 's2_price');
-            const down = fmtSlot(
-              row,
-              'down_20_ts',
-              'down_40_elapsed',
-              's2_price'
-            );
-            return up !== '-' || down !== '-' ? 'Up: ' + up + ' | Down: ' + down : '-';
-          },
-          slot3(row) {
-            const up = fmtSlot(row, 'up_15_ts', 'up_30_elapsed', 's3_price');
-            const down = fmtSlot(
-              row,
-              'down_15_ts',
-              'down_30_elapsed',
-              's3_price'
-            );
-            return up !== '-' || down !== '-' ? 'Up: ' + up + ' | Down: ' + down : '-';
-          },
-          slot4(row) {
-            const up = fmtSlot(row, 'up_25_ts', 'up_50a_elapsed', 's4_price');
-            const down = fmtSlot(
-              row,
-              'down_25_ts',
-              'down_50a_elapsed',
-              's4_price'
-            );
-            return up !== '-' || down !== '-' ? 'Up: ' + up + ' | Down: ' + down : '-';
-          },
-          slot5(row) {
-            const up = fmtSlot(row, 'up_35_ts', 'up_50b_elapsed', 's5_price');
-            const down = fmtSlot(
-              row,
-              'down_35_ts',
-              'down_50b_elapsed',
-              's5_price'
-            );
-            return up !== '-' || down !== '-' ? 'Up: ' + up + ' | Down: ' + down : '-';
-          },
-          slotDisplay(row, slotFn) {
-            const s = slotFn(row);
-            return s === 'Up: - | Down: -' ? '-' : s;
           },
         },
         template: `
@@ -199,25 +185,25 @@
                   <th class="px-4 py-3 text-left font-medium">Coin</th>
                   <th class="px-4 py-3 text-left font-medium">Start time</th>
                   <th class="px-4 py-3 text-left font-medium">Slot 1 (40→60)</th>
-                  <th class="px-4 py-3 text-left font-medium">Slot 2 (20→40)</th>
-                  <th class="px-4 py-3 text-left font-medium">Slot 3 (15→30)</th>
-                  <th class="px-4 py-3 text-left font-medium">Slot 4 (25→50)</th>
+                  <th class="px-4 py-3 text-left font-medium">Slot 2 (35→70)</th>
+                  <th class="px-4 py-3 text-left font-medium">Slot 3 (35→60)</th>
+                  <th class="px-4 py-3 text-left font-medium">Slot 4 (40→70)</th>
                   <th class="px-4 py-3 text-left font-medium">Slot 5 (35→50)</th>
                 </tr>
               </thead>
               <tbody>
                 <tr
-                  v-for="r in rounds"
+                  v-for="r in formattedRounds"
                   :key="r.id"
                   class="border-b border-slate-200 dark:border-slate-700/30 hover:bg-slate-50 dark:hover:bg-slate-800/30"
                 >
                   <td class="px-4 py-3 font-medium">{{ r.coin }}</td>
-                  <td class="px-4 py-3 text-slate-600 dark:text-slate-400 font-mono">{{ fmtStartTime(r.start_ts) }}</td>
-                  <td class="px-4 py-3 text-slate-600 dark:text-slate-400 text-xs whitespace-pre-line">{{ slotDisplay(r, slot1) }}</td>
-                  <td class="px-4 py-3 text-slate-600 dark:text-slate-400 text-xs whitespace-pre-line">{{ slotDisplay(r, slot2) }}</td>
-                  <td class="px-4 py-3 text-slate-600 dark:text-slate-400 text-xs whitespace-pre-line">{{ slotDisplay(r, slot3) }}</td>
-                  <td class="px-4 py-3 text-slate-600 dark:text-slate-400 text-xs whitespace-pre-line">{{ slotDisplay(r, slot4) }}</td>
-                  <td class="px-4 py-3 text-slate-600 dark:text-slate-400 text-xs whitespace-pre-line">{{ slotDisplay(r, slot5) }}</td>
+                  <td class="px-4 py-3 text-slate-600 dark:text-slate-400 font-mono">{{ r._startTime }}</td>
+                  <td class="px-4 py-3 text-slate-600 dark:text-slate-400 text-xs whitespace-pre-line">{{ r._slot1 }}</td>
+                  <td class="px-4 py-3 text-slate-600 dark:text-slate-400 text-xs whitespace-pre-line">{{ r._slot2 }}</td>
+                  <td class="px-4 py-3 text-slate-600 dark:text-slate-400 text-xs whitespace-pre-line">{{ r._slot3 }}</td>
+                  <td class="px-4 py-3 text-slate-600 dark:text-slate-400 text-xs whitespace-pre-line">{{ r._slot4 }}</td>
+                  <td class="px-4 py-3 text-slate-600 dark:text-slate-400 text-xs whitespace-pre-line">{{ r._slot5 }}</td>
                 </tr>
               </tbody>
             </table>

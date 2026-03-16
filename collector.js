@@ -2,7 +2,7 @@
  * Collects market round data: tracks best_ask/best_bid for 5 threshold slots.
  * Each slot: store at left (best_ask <= left), record at right (best_bid >= right) only if store was seen.
  *
- * Slots: (40,60), (20,40), (15,30), (25,50), (35,50)
+ * Slots: (40,60), (35,70), (35,60), (40,70), (35,50)
  */
 
 const db = require('./db');
@@ -12,9 +12,9 @@ const TOLERANCE = 0.005;
 /** 5 slots: [ storeLeft, recordRight ] in 0-1 scale */
 const SLOTS = [
   { store: 0.40, record: 0.60 },
-  { store: 0.20, record: 0.40 },
-  { store: 0.15, record: 0.30 },
-  { store: 0.25, record: 0.50 },
+  { store: 0.35, record: 0.70 },
+  { store: 0.35, record: 0.60 },
+  { store: 0.40, record: 0.70 },
   { store: 0.35, record: 0.50 },
 ];
 
