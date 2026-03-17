@@ -2,7 +2,7 @@
  * Collects market round data: tracks best_ask/best_bid for 5 threshold slots.
  * Each slot: store at left (best_ask <= left), record at right (best_bid >= right) only if store was seen.
  *
- * Slots: (40,60), (35,70), (35,60), (40,70), (35,50)
+ * Slots: (40,50), (50,62), (45,56), (35,44), (43,54)
  */
 
 const db = require('./db');
@@ -11,16 +11,16 @@ const TOLERANCE = 0.005;
 
 /** 5 slots: [ storeLeft, recordRight ] in 0-1 scale */
 const SLOTS = [
-  { store: 0.40, record: 0.60 },
-  { store: 0.35, record: 0.70 },
-  { store: 0.35, record: 0.60 },
-  { store: 0.40, record: 0.70 },
-  { store: 0.35, record: 0.50 },
+  { store: 0.40, record: 0.50 },
+  { store: 0.50, record: 0.62 },
+  { store: 0.45, record: 0.56 },
+  { store: 0.35, record: 0.44 },
+  { store: 0.43, record: 0.54 },
 ];
 
 /** Setters per slot: [ storeUp, storeDown, recordUp, recordDown ] */
 const SLOT_SETTERS = [
-  [db.setFirst040Up, db.setFirst040Down, db.setFirst060Up, db.setFirst060Down],
+  [db.setSlot1StoreUp, db.setSlot1StoreDown, db.setSlot1RecordUp, db.setSlot1RecordDown],
   [db.setSlot2StoreUp, db.setSlot2StoreDown, db.setSlot2RecordUp, db.setSlot2RecordDown],
   [db.setSlot3StoreUp, db.setSlot3StoreDown, db.setSlot3RecordUp, db.setSlot3RecordDown],
   [db.setSlot4StoreUp, db.setSlot4StoreDown, db.setSlot4RecordUp, db.setSlot4RecordDown],

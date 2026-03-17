@@ -79,16 +79,16 @@
           formattedRounds() {
             return this.rounds
               .map((r) => {
-                const s1Up = fmtSlot(r, 'up_40_ts', 'up_60_elapsed', 's1_price');
-                const s1Down = fmtSlot(r, 'down_40_ts', 'down_60_elapsed', 's1_price');
-                const s2Up = fmtSlot(r, 'up_35_ts', 'up_70_s2_elapsed', 's2_price');
-                const s2Down = fmtSlot(r, 'down_35_ts', 'down_70_s2_elapsed', 's2_price');
-                const s3Up = fmtSlot(r, 'up_35_ts', 'up_60_s3_elapsed', 's3_price');
-                const s3Down = fmtSlot(r, 'down_35_ts', 'down_60_s3_elapsed', 's3_price');
-                const s4Up = fmtSlot(r, 'up_40_ts', 'up_70_s4_elapsed', 's4_price');
-                const s4Down = fmtSlot(r, 'down_40_ts', 'down_70_s4_elapsed', 's4_price');
-                const s5Up = fmtSlot(r, 'up_35_ts', 'up_50b_elapsed', 's5_price');
-                const s5Down = fmtSlot(r, 'down_35_ts', 'down_50b_elapsed', 's5_price');
+                const s1Up = fmtSlot(r, 'up_40_ts', 'up_50_elapsed', 's1_price');
+                const s1Down = fmtSlot(r, 'down_40_ts', 'down_50_elapsed', 's1_price');
+                const s2Up = fmtSlot(r, 'up_50_ts', 'up_62_elapsed', 's2_price');
+                const s2Down = fmtSlot(r, 'down_50_ts', 'down_62_elapsed', 's2_price');
+                const s3Up = fmtSlot(r, 'up_45_ts', 'up_56_elapsed', 's3_price');
+                const s3Down = fmtSlot(r, 'down_45_ts', 'down_56_elapsed', 's3_price');
+                const s4Up = fmtSlot(r, 'up_35_ts', 'up_44_elapsed', 's4_price');
+                const s4Down = fmtSlot(r, 'down_35_ts', 'down_44_elapsed', 's4_price');
+                const s5Up = fmtSlot(r, 'up_43_ts', 'up_54_elapsed', 's5_price');
+                const s5Down = fmtSlot(r, 'down_43_ts', 'down_54_elapsed', 's5_price');
                 return {
                   ...r,
                   _startTime: fmtStartTime(r.start_ts),
@@ -191,11 +191,11 @@
                 <tr class="bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700/50">
                   <th class="px-4 py-3 text-left font-medium">Coin</th>
                   <th class="px-4 py-3 text-left font-medium">Start time</th>
-                  <th class="px-4 py-3 text-left font-medium">Slot 1 (40→60)</th>
-                  <th class="px-4 py-3 text-left font-medium">Slot 2 (35→70)</th>
-                  <th class="px-4 py-3 text-left font-medium">Slot 3 (35→60)</th>
-                  <th class="px-4 py-3 text-left font-medium">Slot 4 (40→70)</th>
-                  <th class="px-4 py-3 text-left font-medium">Slot 5 (35→50)</th>
+                  <th class="px-4 py-3 text-left font-medium">Slot 1 (40→50)</th>
+                  <th class="px-4 py-3 text-left font-medium">Slot 2 (50→62)</th>
+                  <th class="px-4 py-3 text-left font-medium">Slot 3 (45→56)</th>
+                  <th class="px-4 py-3 text-left font-medium">Slot 4 (35→44)</th>
+                  <th class="px-4 py-3 text-left font-medium">Slot 5 (43→54)</th>
                 </tr>
               </thead>
               <tbody>

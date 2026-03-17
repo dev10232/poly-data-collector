@@ -3,11 +3,11 @@
  * Append-only design: one record per market round, updated in-place during round lifetime.
  *
  * 5 threshold slots: (store at left, record at right)
- * - s1: 40 -> 60
- * - s2: 35 -> 70
- * - s3: 35 -> 60
- * - s4: 40 -> 70
- * - s5: 35 -> 50
+ * - s1: 40 -> 50
+ * - s2: 50 -> 62
+ * - s3: 45 -> 56
+ * - s4: 35 -> 44
+ * - s5: 43 -> 54
  */
 
 const Database = require('better-sqlite3');
@@ -138,6 +138,14 @@ function migrateAddSlots(database) {
     'up_70_s2_elapsed INTEGER', 'down_70_s2_elapsed INTEGER',
     'up_60_s3_elapsed INTEGER', 'down_60_s3_elapsed INTEGER',
     'up_70_s4_elapsed INTEGER', 'down_70_s4_elapsed INTEGER',
+    'up_50_elapsed INTEGER', 'down_50_elapsed INTEGER',
+    'up_50_ts INTEGER', 'down_50_ts INTEGER',
+    'up_62_elapsed INTEGER', 'down_62_elapsed INTEGER',
+    'up_45_ts INTEGER', 'down_45_ts INTEGER',
+    'up_56_elapsed INTEGER', 'down_56_elapsed INTEGER',
+    'up_44_elapsed INTEGER', 'down_44_elapsed INTEGER',
+    'up_43_ts INTEGER', 'down_43_ts INTEGER',
+    'up_54_elapsed INTEGER', 'down_54_elapsed INTEGER',
   ];
 
   for (const colDef of toAdd) {
@@ -199,30 +207,35 @@ function setSlotRecord(roundId, elapsedCol, priceCol, ts, price) {
   d.prepare(`UPDATE market_rounds SET ${elapsedCol} = ?, ${priceCol} = ?, updated_at = ? WHERE id = ?`).run(elapsed, price ?? null, ts, roundId);
 }
 
-function setFirst040Up(roundId, ts) { setSlotStore(roundId, 'up_40_ts', ts); }
-function setFirst040Down(roundId, ts) { setSlotStore(roundId, 'down_40_ts', ts); }
-function setFirst060Up(roundId, ts, price) { setSlotRecord(roundId, 'up_60_elapsed', 's1_price', ts, price); }
-function setFirst060Down(roundId, ts, price) { setSlotRecord(roundId, 'down_60_elapsed', 's1_price', ts, price); }
+/** Slot 1: 40→50 */
+function setSlot1StoreUp(roundId, ts) { setSlotStore(roundId, 'up_40_ts', ts); }
+function setSlot1StoreDown(roundId, ts) { setSlotStore(roundId, 'down_40_ts', ts); }
+function setSlot1RecordUp(roundId, ts, price) { setSlotRecord(roundId, 'up_50_elapsed', 's1_price', ts, price); }
+function setSlot1RecordDown(roundId, ts, price) { setSlotRecord(roundId, 'down_50_elapsed', 's1_price', ts, price); }
 
-function setSlot2StoreUp(roundId, ts) { setSlotStore(roundId, 'up_35_ts', ts); }
-function setSlot2StoreDown(roundId, ts) { setSlotStore(roundId, 'down_35_ts', ts); }
-function setSlot2RecordUp(roundId, ts, price) { setSlotRecord(roundId, 'up_70_s2_elapsed', 's2_price', ts, price); }
-function setSlot2RecordDown(roundId, ts, price) { setSlotRecord(roundId, 'down_70_s2_elapsed', 's2_price', ts, price); }
+/** Slot 2: 50→62 */
+function setSlot2StoreUp(roundId, ts) { setSlotStore(roundId, 'up_50_ts', ts); }
+function setSlot2StoreDown(roundId, ts) { setSlotStore(roundId, 'down_50_ts', ts); }
+function setSlot2RecordUp(roundId, ts, price) { setSlotRecord(roundId, 'up_62_elapsed', 's2_price', ts, price); }
+function setSlot2RecordDown(roundId, ts, price) { setSlotRecord(roundId, 'down_62_elapsed', 's2_price', ts, price); }
 
-function setSlot3StoreUp(roundId, ts) { setSlotStore(roundId, 'up_35_ts', ts); }
-function setSlot3StoreDown(roundId, ts) { setSlotStore(roundId, 'down_35_ts', ts); }
-function setSlot3RecordUp(roundId, ts, price) { setSlotRecord(roundId, 'up_60_s3_elapsed', 's3_price', ts, price); }
-function setSlot3RecordDown(roundId, ts, price) { setSlotRecord(roundId, 'down_60_s3_elapsed', 's3_price', ts, price); }
+/** Slot 3: 45→56 */
+function setSlot3StoreUp(roundId, ts) { setSlotStore(roundId, 'up_45_ts', ts); }
+function setSlot3StoreDown(roundId, ts) { setSlotStore(roundId, 'down_45_ts', ts); }
+function setSlot3RecordUp(roundId, ts, price) { setSlotRecord(roundId, 'up_56_elapsed', 's3_price', ts, price); }
+function setSlot3RecordDown(roundId, ts, price) { setSlotRecord(roundId, 'down_56_elapsed', 's3_price', ts, price); }
 
-function setSlot4StoreUp(roundId, ts) { setSlotStore(roundId, 'up_40_ts', ts); }
-function setSlot4StoreDown(roundId, ts) { setSlotStore(roundId, 'down_40_ts', ts); }
-function setSlot4RecordUp(roundId, ts, price) { setSlotRecord(roundId, 'up_70_s4_elapsed', 's4_price', ts, price); }
-function setSlot4RecordDown(roundId, ts, price) { setSlotRecord(roundId, 'down_70_s4_elapsed', 's4_price', ts, price); }
+/** Slot 4: 35→44 */
+function setSlot4StoreUp(roundId, ts) { setSlotStore(roundId, 'up_35_ts', ts); }
+function setSlot4StoreDown(roundId, ts) { setSlotStore(roundId, 'down_35_ts', ts); }
+function setSlot4RecordUp(roundId, ts, price) { setSlotRecord(roundId, 'up_44_elapsed', 's4_price', ts, price); }
+function setSlot4RecordDown(roundId, ts, price) { setSlotRecord(roundId, 'down_44_elapsed', 's4_price', ts, price); }
 
-function setSlot5StoreUp(roundId, ts) { setSlotStore(roundId, 'up_35_ts', ts); }
-function setSlot5StoreDown(roundId, ts) { setSlotStore(roundId, 'down_35_ts', ts); }
-function setSlot5RecordUp(roundId, ts, price) { setSlotRecord(roundId, 'up_50b_elapsed', 's5_price', ts, price); }
-function setSlot5RecordDown(roundId, ts, price) { setSlotRecord(roundId, 'down_50b_elapsed', 's5_price', ts, price); }
+/** Slot 5: 43→54 */
+function setSlot5StoreUp(roundId, ts) { setSlotStore(roundId, 'up_43_ts', ts); }
+function setSlot5StoreDown(roundId, ts) { setSlotStore(roundId, 'down_43_ts', ts); }
+function setSlot5RecordUp(roundId, ts, price) { setSlotRecord(roundId, 'up_54_elapsed', 's5_price', ts, price); }
+function setSlot5RecordDown(roundId, ts, price) { setSlotRecord(roundId, 'down_54_elapsed', 's5_price', ts, price); }
 
 /**
  * Search/query rounds.
@@ -301,10 +314,10 @@ module.exports = {
   DB_PATH,
   getDb,
   ensureRound,
-  setFirst040Up,
-  setFirst040Down,
-  setFirst060Up,
-  setFirst060Down,
+  setSlot1StoreUp,
+  setSlot1StoreDown,
+  setSlot1RecordUp,
+  setSlot1RecordDown,
   setSlot2StoreUp,
   setSlot2StoreDown,
   setSlot2RecordUp,
