@@ -298,6 +298,7 @@ function getRound(roundId) {
 }
 
 module.exports = {
+  DB_PATH,
   getDb,
   ensureRound,
   setFirst040Up,

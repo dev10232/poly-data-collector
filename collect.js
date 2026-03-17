@@ -1,7 +1,7 @@
 /**
  * Polymarket data collector — subscribes to markets and stores round data.
  * No HTTP server, no WebSocket server for clients.
- * Run: node collect.js
+ * Run: node collect.js (standalone) or started via server.js (combined).
  */
 
 const { GammaClient } = require('./gamma_client');
@@ -68,7 +68,7 @@ function anyMarketEnded() {
   return allMarkets.some((m) => (m.end_date || 0) - now <= 0);
 }
 
-async function main() {
+async function startCollector() {
   const polyWs = new MarketWebSocket();
 
   polyWs.onPrice((assetId, midPrice, bestBid, bestAsk) => {
@@ -87,7 +87,11 @@ async function main() {
   }, ETA_CHECK_INTERVAL_MS);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+if (require.main === module) {
+  startCollector().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
+
+module.exports = { startCollector };

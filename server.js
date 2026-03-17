@@ -1,7 +1,7 @@
 /**
- * HTTP server for Polymarket rounds dashboard.
- * Serves static files from public/ and provides API for rounds data.
- * Market subscription & WebSocket disabled - dashboard-only mode.
+ * HTTP server + Polymarket collector — combined for Railway deployment.
+ * Serves dashboard API, static files, and runs the data collector.
+ * Run: node server.js (or npm start)
  */
 
 const http = require('http');
@@ -9,6 +9,7 @@ const path = require('path');
 const fs = require('fs');
 
 const db = require('./db');
+const { startCollector } = require('./collect');
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -21,6 +22,22 @@ const server = http.createServer(async (req, res) => {
   if (url.startsWith('/api/')) {
     const route = url.slice(5).split('?')[0];
     const params = new URL(req.url, 'http://x').searchParams;
+
+    if (route === 'download/rounds' && req.method === 'GET') {
+      try {
+        const dbPath = db.DB_PATH;
+        const stat = await fs.promises.stat(dbPath);
+        res.setHeader('Content-Type', 'application/octet-stream');
+        res.setHeader('Content-Disposition', 'attachment; filename="rounds.db"');
+        res.setHeader('Content-Length', String(stat.size));
+        fs.createReadStream(dbPath).pipe(res);
+      } catch (e) {
+        res.statusCode = e.code === 'ENOENT' ? 404 : 500;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: e.message }));
+      }
+      return;
+    }
 
     if (route === 'rounds' && req.method === 'GET') {
       try {
@@ -103,4 +120,6 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
+  startCollector();
+  console.log('Collector started — subscribing to Polymarket');
 });
