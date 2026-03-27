@@ -58,31 +58,31 @@
             ? Number(p).toFixed(2)
             : null;
 
-        const upBought = has(us) ? store.toFixed(2) : '—';
-        const downBought = has(ds) ? store.toFixed(2) : '—';
-        let upSold = '—';
+        const upBought = has(us) ? store.toFixed(2) : '';
+        const downBought = has(ds) ? store.toFixed(2) : '';
+        let upSold = '';
         if (has(ur)) {
           const p = fmt(sup) ?? fmt(sleg);
-          upSold = p != null ? p : '—';
+          upSold = p != null ? p : '';
         }
-        let downSold = '—';
+        let downSold = '';
         if (has(dr)) {
           const p = fmt(sdn) ?? fmt(sleg);
-          downSold = p != null ? p : '—';
+          downSold = p != null ? p : '';
         }
 
         return (
           '<div class="space-y-1 text-left">' +
           '<div>Up: ' +
           upBought +
-          '(bought) → ' +
+          ' → ' +
           upSold +
-          '(sold)</div>' +
+          '</div>' +
           '<div>Down: ' +
           downBought +
-          '(bought) → ' +
+          ' → ' +
           downSold +
-          '(sold)</div>' +
+          '</div>' +
           '</div>'
         );
       }
@@ -224,9 +224,9 @@
               if (this.coinFilter) params.set('coin', this.coinFilter);
               if (this.buyTimeLimit && Number(this.buyTimeLimit) > 0)
                 params.set('buyTimeLimit', String(Number(this.buyTimeLimit)));
-              const selected = SLOT_OPTIONS.filter((o) => this.slotFilter[o.name]).map(
-                (o) => o.idx
-              );
+              const selected = SLOT_OPTIONS.filter(
+                (o) => this.slotFilter[o.name],
+              ).map((o) => o.idx);
               if (selected.length < SLOT_OPTIONS.length)
                 params.set('slots', selected.join(','));
               const r = await fetch('/api/profit?' + params.toString());
