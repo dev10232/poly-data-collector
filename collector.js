@@ -1,21 +1,22 @@
 /**
- * Collects market round data: tracks best_ask/best_bid for 5 threshold slots.
+ * Collects market round data: tracks best_ask/best_bid for 6 threshold slots.
  * Each slot: store at left (best_ask <= left), record at right (best_bid >= right) only if store was seen.
  *
- * Slots: (40,50), (50,62), (45,56), (35,44), (43,54)
+ * Slots: (0.30→0.35), (0.35→0.40), (0.40→0.45), (0.45→0.50), (0.50→0.55), (0.55→0.60)
  */
 
 const db = require('./db');
 
 const TOLERANCE = 0.005;
 
-/** 5 slots: [ storeLeft, recordRight ] in 0-1 scale */
+/** 6 slots: [ storeLeft, recordRight ] in 0-1 scale */
 const SLOTS = [
-  { store: 0.40, record: 0.50 },
-  { store: 0.50, record: 0.62 },
-  { store: 0.45, record: 0.56 },
-  { store: 0.35, record: 0.44 },
-  { store: 0.43, record: 0.54 },
+  { store: 0.30, record: 0.35 },
+  { store: 0.35, record: 0.40 },
+  { store: 0.40, record: 0.45 },
+  { store: 0.45, record: 0.50 },
+  { store: 0.50, record: 0.55 },
+  { store: 0.55, record: 0.60 },
 ];
 
 /** Setters per slot: [ storeUp, storeDown, recordUp, recordDown ] */
@@ -25,9 +26,10 @@ const SLOT_SETTERS = [
   [db.setSlot3StoreUp, db.setSlot3StoreDown, db.setSlot3RecordUp, db.setSlot3RecordDown],
   [db.setSlot4StoreUp, db.setSlot4StoreDown, db.setSlot4RecordUp, db.setSlot4RecordDown],
   [db.setSlot5StoreUp, db.setSlot5StoreDown, db.setSlot5RecordUp, db.setSlot5RecordDown],
+  [db.setSlot6StoreUp, db.setSlot6StoreDown, db.setSlot6RecordUp, db.setSlot6RecordDown],
 ];
 
-/** round_id -> { storeTs: [5 slots x 2 outcomes], recordTs: [5 slots x 2 outcomes] } */
+/** round_id -> { storeTs: [6 slots x 2 outcomes], recordTs: [6 slots x 2 outcomes] } */
 const activeRounds = new Map();
 
 /** asset_id -> { round_id, outcome: 'Up'|'Down' } */
@@ -50,10 +52,10 @@ function registerRound(market) {
     round_end_ts: end_date,
     up_token_id: up_id,
     down_token_id: down_id,
-    storeTs: Array(5)
+    storeTs: Array(6)
       .fill(null)
       .map(() => ({ up: null, down: null })),
-    recordTs: Array(5)
+    recordTs: Array(6)
       .fill(null)
       .map(() => ({ up: null, down: null })),
   };

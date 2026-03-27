@@ -22,28 +22,83 @@
     <script>
       const { createApp } = Vue;
 
-      function fmtElapsed(sec) {
-        if (sec == null || sec === '' || !Number.isFinite(Number(sec)))
-          return '-';
-        const s = Math.floor(Number(sec));
-        const m = Math.floor(s / 60);
-        const remainder = s % 60;
-        return m + ':' + String(remainder).padStart(2, '0');
+      /** [store, record] per slot — must match collector SLOTS */
+      const SLOT_PAIRS = [
+        [0.3, 0.35],
+        [0.35, 0.4],
+        [0.4, 0.45],
+        [0.45, 0.5],
+        [0.5, 0.55],
+        [0.55, 0.6],
+      ];
+
+      const SLOT_LABELS = [
+        '0.30→0.35',
+        '0.35→0.40',
+        '0.40→0.45',
+        '0.45→0.50',
+        '0.50→0.55',
+        '0.55→0.60',
+      ];
+
+      function formatSlotHtml(row, idx) {
+        const n = idx + 1;
+        const store = SLOT_PAIRS[idx][0];
+        const us = row['slot' + n + '_us'];
+        const ds = row['slot' + n + '_ds'];
+        const ur = row['slot' + n + '_ur'];
+        const dr = row['slot' + n + '_dr'];
+        const sup = row['s' + n + '_up_price'];
+        const sdn = row['s' + n + '_down_price'];
+        const sleg = row['s' + n + '_price'];
+
+        const has = (v) => v != null && v !== '';
+        const fmt = (p) =>
+          p != null && p !== '' && Number.isFinite(Number(p))
+            ? Number(p).toFixed(2)
+            : null;
+
+        const upBought = has(us) ? store.toFixed(2) : '—';
+        const downBought = has(ds) ? store.toFixed(2) : '—';
+        let upSold = '—';
+        if (has(ur)) {
+          const p = fmt(sup) ?? fmt(sleg);
+          upSold = p != null ? p : '—';
+        }
+        let downSold = '—';
+        if (has(dr)) {
+          const p = fmt(sdn) ?? fmt(sleg);
+          downSold = p != null ? p : '—';
+        }
+
+        return (
+          '<div class="space-y-1 text-left">' +
+          '<div>Up: ' +
+          upBought +
+          '(bought) → ' +
+          upSold +
+          '(sold)</div>' +
+          '<div>Down: ' +
+          downBought +
+          '(bought) → ' +
+          downSold +
+          '(sold)</div>' +
+          '</div>'
+        );
       }
 
-      function fmtSlot(row, lowCol, highCol, priceCol) {
-        const low = row[lowCol];
-        const high = row[highCol];
-        const price = row[priceCol];
-        const lowStr = fmtElapsed(low);
-        const highStr = fmtElapsed(high);
-        if (lowStr === '-' || highStr === '-') return '-';
-        const p = Number(price);
-        const priceStr =
-          price != null && price !== '' && Number.isFinite(p)
-            ? p.toFixed(2)
-            : 'N';
-        return lowStr + ' → ' + highStr + ' @ ' + priceStr;
+      function rowHasSlotActivity(r) {
+        for (let i = 0; i < 6; i++) {
+          const n = i + 1;
+          if (
+            r['slot' + n + '_us'] != null ||
+            r['slot' + n + '_ds'] != null ||
+            r['slot' + n + '_ur'] != null ||
+            r['slot' + n + '_dr'] != null
+          )
+            return true;
+        }
+        return false;
       }
 
       function fmtStartTime(ts) {
@@ -57,10 +112,7 @@
         return y + '-' + m + '-' + day + ' ' + h + ':' + min;
       }
 
-      function slotDisplay(up, down) {
-        const ok = up !== '-' || down !== '-';
-        return ok ? 'Up: ' + up + ' | Down: ' + down : '-';
-      }
+      const SLOT_OPTIONS = SLOT_LABELS.map((name, idx) => ({ name, idx }));
 
       createApp({
         data() {
@@ -68,52 +120,55 @@
             rounds: [],
             coins: [],
             coinFilter: '',
+            buyTimeLimit: '',
+            slotFilter: Object.fromEntries(SLOT_LABELS.map((n) => [n, true])),
+            slotOptions: SLOT_OPTIONS,
             page: 1,
             total: 0,
             totalPages: 0,
             pageSize: 20,
             loading: false,
+            profit: null,
+            profitLoading: false,
           };
         },
         computed: {
+          profitSections() {
+            if (!this.profit) return [];
+            return [
+              { key: 'upOnly', label: 'Up only' },
+              { key: 'downOnly', label: 'Down only' },
+              { key: 'firstOnly', label: 'First bought' },
+              { key: 'total', label: 'Up + Down total' },
+            ].map(({ key, label }) => ({
+              key,
+              label,
+              data: this.profit[key] ?? null,
+            }));
+          },
           formattedRounds() {
             return this.rounds
               .map((r) => {
-                const s1Up = fmtSlot(r, 'up_40_ts', 'up_50_elapsed', 's1_price');
-                const s1Down = fmtSlot(r, 'down_40_ts', 'down_50_elapsed', 's1_price');
-                const s2Up = fmtSlot(r, 'up_50_ts', 'up_62_elapsed', 's2_price');
-                const s2Down = fmtSlot(r, 'down_50_ts', 'down_62_elapsed', 's2_price');
-                const s3Up = fmtSlot(r, 'up_45_ts', 'up_56_elapsed', 's3_price');
-                const s3Down = fmtSlot(r, 'down_45_ts', 'down_56_elapsed', 's3_price');
-                const s4Up = fmtSlot(r, 'up_35_ts', 'up_44_elapsed', 's4_price');
-                const s4Down = fmtSlot(r, 'down_35_ts', 'down_44_elapsed', 's4_price');
-                const s5Up = fmtSlot(r, 'up_43_ts', 'up_54_elapsed', 's5_price');
-                const s5Down = fmtSlot(r, 'down_43_ts', 'down_54_elapsed', 's5_price');
-                return {
+                const o = {
                   ...r,
                   _startTime: fmtStartTime(r.start_ts),
-                  _slot1: slotDisplay(s1Up, s1Down),
-                  _slot2: slotDisplay(s2Up, s2Down),
-                  _slot3: slotDisplay(s3Up, s3Down),
-                  _slot4: slotDisplay(s4Up, s4Down),
-                  _slot5: slotDisplay(s5Up, s5Down),
                 };
+                for (let i = 0; i < 6; i++) {
+                  o['_slot' + (i + 1) + 'Html'] = formatSlotHtml(r, i);
+                }
+                return o;
               })
-              .filter((r) => {
-                const allEmpty =
-                  r._slot1 === '-' &&
-                  r._slot2 === '-' &&
-                  r._slot3 === '-' &&
-                  r._slot4 === '-' &&
-                  r._slot5 === '-';
-                return !allEmpty;
-              });
+              .filter(rowHasSlotActivity);
           },
         },
         mounted() {
           this.fetchCoins();
           this.fetchRounds();
-          this._pollTimer = setInterval(() => this.fetchRounds(true), 4000);
+          this.fetchProfit();
+          this._pollTimer = setInterval(() => {
+            this.fetchRounds(true);
+            this.fetchProfit(true);
+          }, 4000);
         },
         beforeUnmount() {
           if (this._pollTimer) clearInterval(this._pollTimer);
@@ -122,6 +177,13 @@
           coinFilter() {
             this.page = 1;
             this.fetchRounds();
+            this.fetchProfit();
+          },
+          slotFilter: {
+            handler() {
+              this.fetchProfit();
+            },
+            deep: true,
           },
           page() {
             this.fetchRounds();
@@ -155,12 +217,33 @@
               if (!silent) this.loading = false;
             }
           },
+          async fetchProfit(silent = false) {
+            if (!silent) this.profitLoading = true;
+            try {
+              const params = new URLSearchParams();
+              if (this.coinFilter) params.set('coin', this.coinFilter);
+              if (this.buyTimeLimit && Number(this.buyTimeLimit) > 0)
+                params.set('buyTimeLimit', String(Number(this.buyTimeLimit)));
+              const selected = SLOT_OPTIONS.filter((o) => this.slotFilter[o.name]).map(
+                (o) => o.idx
+              );
+              if (selected.length < SLOT_OPTIONS.length)
+                params.set('slots', selected.join(','));
+              const r = await fetch('/api/profit?' + params.toString());
+              const data = await r.json();
+              this.profit = data.error ? null : data;
+            } catch (e) {
+              this.profit = null;
+            } finally {
+              if (!silent) this.profitLoading = false;
+            }
+          },
         },
         template: `
-        <div class="container mx-auto px-4 py-8 max-w-[1400px]">
+        <div class="container mx-auto px-4 py-8 max-w-[1600px]">
           <header class="mb-6">
             <h1 class="text-2xl font-semibold text-emerald-600 dark:text-emerald-400 tracking-tight">Rounds Dashboard</h1>
-            <p class="text-slate-600 dark:text-slate-400 text-sm mt-1">Market rounds from rounds.db — 20 records per page</p>
+            <p class="text-slate-600 dark:text-slate-400 text-sm mt-1">Market rounds from rounds.db — buy at store threshold, sell at bid ≥ record</p>
           </header>
 
           <div class="flex flex-wrap items-center gap-4 mb-4">
@@ -174,6 +257,28 @@
                 <option v-for="c in coins" :key="c" :value="c">{{ c }}</option>
               </select>
             </div>
+            <div class="flex items-center gap-2">
+              <label class="text-sm text-slate-600 dark:text-slate-400">Buy time limit (sec):</label>
+              <input
+                v-model="buyTimeLimit"
+                type="number"
+                min="1"
+                placeholder="e.g. 60"
+                class="px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm w-24"
+                @keyup.enter="fetchProfit()"
+              />
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+              <span class="text-sm text-slate-600 dark:text-slate-400">Slots:</span>
+              <label v-for="opt in slotOptions" :key="opt.name" class="inline-flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  v-model="slotFilter[opt.name]"
+                  class="rounded border-slate-400 w-4 h-4 shrink-0 accent-emerald-600"
+                />
+                <span class="text-sm">{{ opt.name }}</span>
+              </label>
+            </div>
             <a
               href="/api/download/rounds"
               download="rounds.db"
@@ -183,19 +288,47 @@
             </a>
           </div>
 
+          <div v-if="profitLoading" class="text-slate-500 text-sm mb-4">Loading profit…</div>
+          <div v-else-if="profit" class="mb-8">
+            <h2 class="text-lg font-medium text-slate-800 dark:text-slate-200 mb-3">Profit calculator</h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mb-3">$2 per store leg; win = 2 × (record ÷ store) per closed leg. Respects buy time limit and selected slots.</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div v-for="section in profitSections" :key="section.key" class="p-4 rounded-xl border border-slate-200 dark:border-slate-700/50 bg-white dark:bg-slate-800/50">
+                <h3 class="text-sm font-medium text-slate-600 dark:text-slate-300 mb-3">{{ section.label }}</h3>
+                <div class="grid grid-cols-2 gap-3 mb-3">
+                  <div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400">Spent</div>
+                    <div class="text-base font-mono font-semibold">{{ section.data?.totalSpent?.toFixed(2) ?? '0.00' }}</div>
+                  </div>
+                  <div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400">Won</div>
+                    <div class="text-base font-mono font-semibold text-emerald-600 dark:text-emerald-400">{{ section.data?.totalWon?.toFixed(2) ?? '0.00' }}</div>
+                  </div>
+                  <div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400">Profit</div>
+                    <div class="text-base font-mono font-semibold" :class="((section.data?.totalProfit ?? 0) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400')">{{ section.data?.totalProfit?.toFixed(2) ?? '0.00' }}</div>
+                  </div>
+                  <div>
+                    <div class="text-xs text-slate-500 dark:text-slate-400">Min capital</div>
+                    <div class="text-base font-mono font-semibold">{{ section.data?.minCapital?.toFixed(2) ?? '0.00' }}</div>
+                  </div>
+                </div>
+                <div v-if="section.data?.bySlot?.length" class="flex flex-wrap gap-1.5">
+                  <span v-for="s in section.data.bySlot" :key="s.name" class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs" :class="s.profit >= 0 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400'">{{ s.name }}: {{ s.profit?.toFixed(2) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div v-if="loading" class="text-slate-500 text-sm py-4">Loading…</div>
 
           <div v-else class="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700/50 overflow-hidden">
-            <table class="w-full text-sm">
+            <table class="w-full text-sm min-w-[1100px]">
               <thead>
                 <tr class="bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700/50">
-                  <th class="px-4 py-3 text-left font-medium">Coin</th>
-                  <th class="px-4 py-3 text-left font-medium">Start time</th>
-                  <th class="px-4 py-3 text-left font-medium">Slot 1 (40→50)</th>
-                  <th class="px-4 py-3 text-left font-medium">Slot 2 (50→62)</th>
-                  <th class="px-4 py-3 text-left font-medium">Slot 3 (45→56)</th>
-                  <th class="px-4 py-3 text-left font-medium">Slot 4 (35→44)</th>
-                  <th class="px-4 py-3 text-left font-medium">Slot 5 (43→54)</th>
+                  <th class="px-3 py-3 text-left font-medium">Coin</th>
+                  <th class="px-3 py-3 text-left font-medium">Start</th>
+                  <th v-for="(label, i) in SLOT_LABELS" :key="i" class="px-3 py-3 text-left font-medium whitespace-nowrap">Slot {{ i + 1 }} ({{ label }})</th>
                 </tr>
               </thead>
               <tbody>
@@ -204,19 +337,15 @@
                   :key="r.id"
                   class="border-b border-slate-200 dark:border-slate-700/30 hover:bg-slate-50 dark:hover:bg-slate-800/30"
                 >
-                  <td class="px-4 py-3 font-medium">{{ r.coin }}</td>
-                  <td class="px-4 py-3 text-slate-600 dark:text-slate-400 font-mono">{{ r._startTime }}</td>
-                  <td class="px-4 py-3 text-slate-600 dark:text-slate-400 text-xs whitespace-pre-line">{{ r._slot1 }}</td>
-                  <td class="px-4 py-3 text-slate-600 dark:text-slate-400 text-xs whitespace-pre-line">{{ r._slot2 }}</td>
-                  <td class="px-4 py-3 text-slate-600 dark:text-slate-400 text-xs whitespace-pre-line">{{ r._slot3 }}</td>
-                  <td class="px-4 py-3 text-slate-600 dark:text-slate-400 text-xs whitespace-pre-line">{{ r._slot4 }}</td>
-                  <td class="px-4 py-3 text-slate-600 dark:text-slate-400 text-xs whitespace-pre-line">{{ r._slot5 }}</td>
+                  <td class="px-3 py-3 font-medium align-top">{{ r.coin }}</td>
+                  <td class="px-3 py-3 text-slate-600 dark:text-slate-400 font-mono text-xs align-top whitespace-nowrap">{{ r._startTime }}</td>
+                  <td v-for="i in 6" :key="i" class="px-3 py-3 text-slate-600 dark:text-slate-400 text-xs align-top" v-html="r['_slot' + i + 'Html']"></td>
                 </tr>
               </tbody>
             </table>
           </div>
 
-          <div v-if="rounds.length === 0 && !loading" class="text-slate-500 text-sm mt-4">No rounds found.</div>
+          <div v-if="!loading && formattedRounds.length === 0" class="text-slate-500 text-sm mt-4">No rounds with slot data on this page.</div>
 
           <div
             v-if="totalPages > 1"

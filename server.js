@@ -81,6 +81,36 @@ const server = http.createServer(async (req, res) => {
       }
       return;
     }
+
+    if (route === 'profit' && req.method === 'GET') {
+      try {
+        const opts = {};
+        const coin = params.get('coin');
+        if (coin) opts.coin = coin;
+        const duration = params.get('duration');
+        if (duration) opts.duration = parseInt(duration, 10);
+        const fromTs = params.get('fromTs');
+        if (fromTs) opts.fromTs = parseInt(fromTs, 10);
+        const toTs = params.get('toTs');
+        if (toTs) opts.toTs = parseInt(toTs, 10);
+        const buyTimeLimit = params.get('buyTimeLimit');
+        if (buyTimeLimit) opts.buyTimeLimit = parseInt(buyTimeLimit, 10);
+        const slots = params.get('slots');
+        if (slots)
+          opts.slots = slots
+            .split(',')
+            .map((n) => parseInt(n, 10))
+            .filter((n) => !isNaN(n));
+        const result = db.calculateProfit(opts);
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify(result));
+      } catch (e) {
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: e.message }));
+      }
+      return;
+    }
   }
 
   if (!filePath.startsWith(PUBLIC_DIR)) {
